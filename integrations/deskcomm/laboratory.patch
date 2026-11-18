@@ -1,0 +1,317 @@
+--- /dev/null
++++ b/.changes/laboratorio-dos-agentes.md
+@@ -0,0 +1,7 @@
++---
++impacto: capacidade_nova
++secao: adicionado
++titulo: Laboratório dos agentes da organização
++---
++
++A lista de agentes abre o laboratório da organização ativa. Administradores executam prévias reais pelo motor existente, sem envios externos. O escritório visual exige o bundle estático em public/laboratory-office; a ausência é mostrada na tela. Nenhuma conexão com sessões ou terminais locais é criada.
+--- /dev/null
++++ b/app/api/v1/laboratory/route.test.ts
+@@ -0,0 +1,30 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++const mocks = vi.hoisted(() => ({ role: vi.fn(), queries: [] as Array<{ eq: ReturnType<typeof vi.fn> }> }));
++vi.mock('@/lib/auth/require-role', () => ({ requireRole: mocks.role }));
++vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: (table: string) => {
++  const q = { select: () => q, eq: vi.fn(() => q), is: () => q, order: () => q,
++    limit: async () => ({ data: table === 'ai_agents' ? [{ id: 'agent-a', name: 'Agente A' }] : [], error: null }) };
++  mocks.queries.push(q);
++  return q;
++} }) }));
++import { GET } from './route';
++beforeEach(() => {
++  mocks.queries.length = 0;
++  mocks.role.mockResolvedValue({ ok: true, org: { orgId: 'tenant-a', name: 'Empresa A', role: 'manager' } });
++});
++describe('laboratory snapshot scope', () => {
++  it('filters every query by the trusted active organization and exposes no execution rights to manager', async () => {
++    const result = await GET();
++    const body = await result.json();
++    expect(body.data.organization_id).toBe('tenant-a');
++    expect(body.data.can_execute).toBe(false);
++    expect(mocks.queries).toHaveLength(2);
++    for (const query of mocks.queries) expect(query.eq).toHaveBeenCalledWith('organization_id', 'tenant-a');
++    expect(result.headers.get('Cache-Control')).toBe('no-store');
++  });
++  it('stops before querying when authentication fails', async () => {
++    mocks.role.mockResolvedValueOnce({ ok: false, response: new Response(null, { status: 401 }) });
++    expect((await GET()).status).toBe(401);
++    expect(mocks.queries).toHaveLength(0);
++  });
++});
+--- /dev/null
++++ b/app/api/v1/laboratory/route.ts
+@@ -0,0 +1,24 @@
++import { randomUUID } from 'node:crypto';
++import { ok, fail } from '@/lib/api/wrappers';
++import { requireRole } from '@/lib/auth/require-role';
++import { createClient } from '@/lib/supabase/server';
++import { laboratoryExecution } from '@/lib/laboratory/policy';
++
++export const dynamic = 'force-dynamic';
++export async function GET() {
++  const requestId = randomUUID();
++  const authz = await requireRole('manager', { requestId, resource: 'laboratory' });
++  if (!authz.ok) return authz.response;
++  const db = await createClient();
++  const organizationId = authz.org.orgId;
++  const [agents, runs] = await Promise.all([
++    db.from('ai_agents').select('id, name, description, is_active, published_version_id, paused_at')
++      .eq('organization_id', organizationId).is('archived_at', null).order('name').limit(100),
++    db.from('ai_agent_runs').select('id, agent_id, status, is_dry_run, started_at, completed_at, error_code')
++      .eq('organization_id', organizationId).eq('is_dry_run', true).order('started_at', { ascending: false }).limit(30),
++  ]);
++  if (agents.error || runs.error) return fail('internal_error', 'Não foi possível consultar o laboratório.', 500, { requestId });
++  return ok({ organization_id: organizationId, organization_name: authz.org.name,
++    can_execute: authz.org.role === 'admin', execution: laboratoryExecution(process.env),
++    agents: agents.data, runs: runs.data }, { requestId, headers: { 'Cache-Control': 'no-store' } });
++}
+--- /dev/null
++++ b/app/api/v1/laboratory/tasks/route.test.ts
+@@ -0,0 +1,56 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { NextRequest } from 'next/server';
++const mocks = vi.hoisted(() => ({ preview: vi.fn(), role: vi.fn(), agent: vi.fn(), support: vi.fn() }));
++vi.mock('@/lib/auth/require-role', () => ({ requireRole: mocks.role }));
++vi.mock('@/lib/impersonate/support', () => ({ requireSupportWrite: mocks.support }));
++vi.mock('@/app/api/v1/ai/agents/[id]/versions/[vid]/test/route', () => ({ POST: mocks.preview }));
++vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: () => {
++  const q = { select: () => q, eq: vi.fn(() => q), maybeSingle: mocks.agent };
++  return q;
++} }) }));
++import { POST } from './route';
++const agentId = '11111111-1111-4111-8111-111111111111';
++const versionId = '22222222-2222-4222-8222-222222222222';
++function request(body: unknown, origin = 'https://crm.example') {
++  return new NextRequest('https://crm.example/api/v1/laboratory/tasks', {
++    method: 'POST', headers: { origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
++  });
++}
++const task = { agent_id: agentId, task_type: 'agent_response_preview', instruction: 'Responda a esta pergunta.' };
++beforeEach(() => {
++  vi.resetAllMocks();
++  vi.stubEnv('SUPABASE_DB_URL', 'configured');
++  vi.stubEnv('INTERNAL_AGENT_RUN_STUB', 'false');
++  mocks.role.mockResolvedValue({ ok: true, user: { id: 'user' }, org: { orgId: 'tenant-a', role: 'admin' } });
++  mocks.support.mockResolvedValue(null);
++  mocks.agent.mockResolvedValue({ data: { id: agentId, organization_id: 'tenant-a', published_version_id: versionId, is_active: true, paused_at: null, archived_at: null }, error: null });
++  mocks.preview.mockResolvedValue(new Response(JSON.stringify({ data: { status: 'ok', final_text: 'Resposta real do motor.' } })));
++});
++afterEach(() => vi.unstubAllEnvs());
++describe('laboratory task authorization and dispatch', () => {
++  it('rejects cross-origin and body tenant selection without dispatch', async () => {
++    expect((await POST(request(task, 'https://other.example'))).status).toBe(403);
++    expect((await POST(request({ ...task, organization_id: 'tenant-b' }))).status).toBe(422);
++    expect(mocks.preview).not.toHaveBeenCalled();
++  });
++  it('rejects an agent from another tenant even if returned by a future faulty client', async () => {
++    mocks.agent.mockResolvedValue({ data: { organization_id: 'tenant-b', published_version_id: versionId, is_active: true, paused_at: null, archived_at: null } });
++    expect((await POST(request(task))).status).toBe(404);
++    expect(mocks.preview).not.toHaveBeenCalled();
++  });
++  it('preserves denied RBAC and refuses unconfigured runtime', async () => {
++    mocks.role.mockResolvedValueOnce({ ok: false, response: new Response(null, { status: 403 }) });
++    expect((await POST(request(task))).status).toBe(403);
++    vi.stubEnv('SUPABASE_DB_URL', '');
++    expect((await POST(request(task))).status).toBe(503);
++    expect(mocks.preview).not.toHaveBeenCalled();
++  });
++  it('dispatches only the org-scoped published version to the existing engine', async () => {
++    const response = await POST(request(task));
++    expect(response.status).toBe(200);
++    const [req, ctx] = mocks.preview.mock.calls[0];
++    expect(await req.json()).toEqual({ sample_message: task.instruction });
++    expect(await ctx.params).toEqual({ id: agentId, vid: versionId });
++    expect(await response.json()).toEqual({ data: { status: 'ok', final_text: 'Resposta real do motor.' } });
++  });
++});
+--- /dev/null
++++ b/app/api/v1/laboratory/tasks/route.ts
+@@ -0,0 +1,37 @@
++import { randomUUID } from 'node:crypto';
++import { NextRequest } from 'next/server';
++import { z } from 'zod';
++import { fail } from '@/lib/api/wrappers';
++import { requireRole } from '@/lib/auth/require-role';
++import { requireSupportWrite } from '@/lib/impersonate/support';
++import { createClient } from '@/lib/supabase/server';
++import { canPreviewAgent, laboratoryExecution } from '@/lib/laboratory/policy';
++import { POST as previewAgent } from '@/app/api/v1/ai/agents/[id]/versions/[vid]/test/route';
++
++export const dynamic = 'force-dynamic';
++const taskSchema = z.object({ agent_id: z.string().uuid(), task_type: z.literal('agent_response_preview'), instruction: z.string().trim().min(1).max(4000) }).strict();
++export async function POST(req: NextRequest) {
++  const requestId = randomUUID();
++  // Impede submissão por formulário de outro site, mesmo numa instalação com cookies relaxados.
++  if (req.headers.get('origin') !== req.nextUrl.origin) return fail('forbidden', 'Origem inválida.', 403, { requestId });
++  const supportDenied = await requireSupportWrite();
++  if (supportDenied) return supportDenied;
++  const authz = await requireRole('admin', { requestId, resource: 'laboratory' });
++  if (!authz.ok) return authz.response;
++  let raw: unknown;
++  try { raw = await req.json(); } catch { return fail('invalid_request', 'JSON inválido.', 400, { requestId }); }
++  const parsed = taskSchema.safeParse(raw);
++  if (!parsed.success) return fail('validation_failed', 'Selecione um agente e uma prévia de resposta válida (até 4000 caracteres).', 422, { requestId });
++  const execution = laboratoryExecution(process.env);
++  if (!execution.available) return fail('laboratory_unconfigured', execution.reason, 503, { requestId });
++  const db = await createClient();
++  const { data: agent, error } = await db.from('ai_agents')
++    .select('id, organization_id, published_version_id, is_active, paused_at, archived_at')
++    .eq('organization_id', authz.org.orgId).eq('id', parsed.data.agent_id).maybeSingle();
++  if (error) return fail('internal_error', 'Não foi possível consultar o agente.', 500, { requestId });
++  if (!canPreviewAgent(agent, authz.org.orgId)) return fail('not_found', 'Agente publicado e ativo não encontrado nesta organização.', 404, { requestId });
++  // Reutiliza validação, motor sandbox, persistência, auditoria e limites do endpoint canônico.
++  const previewReq = new NextRequest(req.url, { method: 'POST', headers: req.headers,
++    body: JSON.stringify({ sample_message: parsed.data.instruction }) });
++  return previewAgent(previewReq, { params: Promise.resolve({ id: agent!.id, vid: agent!.published_version_id! }) });
++}
+--- a/app/app/ai/agents/page.tsx
++++ b/app/app/ai/agents/page.tsx
+@@ -1,3 +1,4 @@
++import Link from "next/link";
+ import { redirect } from "next/navigation";
+ 
+ import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
+@@ -63,6 +64,7 @@
+             {traduzir("Configure o comportamento dos agents que respondem no WhatsApp.", idioma)}
+           </p>
+         </div>
++        <Link href="/app/ai/laboratory" className="rounded-md border px-4 py-2 text-sm font-medium">LOBY</Link>
+       </header>
+       <AgentsList initialData={agents} canWrite={canWrite} />
+     </div>
+--- /dev/null
++++ b/app/app/ai/laboratory/_client.tsx
+@@ -0,0 +1,62 @@
++'use client';
++import Link from 'next/link';
++import { useCallback, useEffect, useRef, useState } from 'react';
++
++interface Snapshot {
++  organization_id: string; organization_name: string; can_execute: boolean;
++  execution: { available: boolean; reason: string };
++  agents: Array<{ id: string; name: string; description: string | null; is_active: boolean; published_version_id: string | null; paused_at: string | null }>;
++  runs: Array<{ id: string; agent_id: string; status: string; is_dry_run: boolean; started_at: string; completed_at: string | null; error_code: string | null }>;
++}
++export function Laboratory({ organizationId }: { organizationId: string }) {
++  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
++  const [error, setError] = useState('');
++  const [assets, setAssets] = useState(false);
++  const iframe = useRef<HTMLIFrameElement>(null);
++  const revision = useRef(0);
++  const requestSequence = useRef(0);
++  const current = useRef<Snapshot | null>(null);
++  const send = useCallback(() => {
++    if (current.current) iframe.current?.contentWindow?.postMessage({ type: 'lotorium.crm.snapshot', revision: ++revision.current, snapshot: current.current }, window.location.origin);
++  }, []);
++  const refresh = useCallback(async () => {
++    const sequence = ++requestSequence.current;
++    try {
++      const response = await fetch('/api/v1/laboratory', { cache: 'no-store' });
++      const body = await response.json();
++      if (sequence !== requestSequence.current) return;
++      if (!response.ok) throw new Error(body.error?.message ?? 'Laboratório indisponível.');
++      if (body.data.organization_id !== organizationId) throw new Error('A organização ativa mudou. Reabra o laboratório.');
++      current.current = body.data;
++      setSnapshot(body.data);
++      setError('');
++      send();
++    } catch (e) {
++      if (sequence !== requestSequence.current) return;
++      current.current = null;
++      setSnapshot(null);
++      setError(e instanceof Error ? e.message : 'Falha ao consultar o laboratório.');
++    }
++  }, [organizationId, send]);
++  useEffect(() => {
++    void refresh();
++    const timer = setInterval(() => void refresh(), 5000);
++    const listener = (e: MessageEvent) => {
++      if (e.origin === window.location.origin && e.source === iframe.current?.contentWindow && e.data?.type === 'lotorium.crm.ready') send();
++    };
++    window.addEventListener('message', listener);
++    const controller = new AbortController();
++    void fetch('/laboratory-office/index.html', { method: 'HEAD', signal: controller.signal }).then(r => setAssets(r.ok)).catch(() => setAssets(false));
++    const invalidate = () => { ++requestSequence.current; current.current = null; };
++    return () => { clearInterval(timer); window.removeEventListener('message', listener); controller.abort(); invalidate(); };
++  }, [refresh, send]);
++  return <main className="flex flex-col gap-5 p-6">
++    <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">LOBY</h1><p>{snapshot?.organization_name ?? 'Organização ativa'}</p></div><nav className="flex gap-4"><Link className="underline" href="/app/ai/agents">Configurar agentes</Link><Link className="underline" href="/app/ai/agents/new">Criar agente</Link></nav></header>
++    {error && <p role="alert">{error}</p>}
++    {snapshot && assets ? <iframe ref={iframe} title="Escritório virtual da organização" src="/laboratory-office/index.html?crm=1" onLoad={send} className="h-[min(78vh,900px)] min-h-[520px] w-full rounded-2xl border border-lime-900/40 bg-[#11151b]" sandbox="allow-scripts allow-same-origin" /> : <p>O visual do LOBY ainda não está disponível nesta instalação.</p>}
++    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-lime-900/40 bg-lime-950/10 p-4">
++      <div><h2 className="text-sm font-semibold">Primeiro, o nosso espaço</h2><p className="mt-1 text-sm text-muted-foreground">Explore o cenário e conheça a equipe. As ações de tarefas serão conectadas ao CRM na próxima etapa.</p></div>
++      <button type="button" disabled className="rounded-lg border px-4 py-2 text-sm opacity-50">Tarefas · em breve</button>
++    </section>
++  </main>;
++}
+--- /dev/null
++++ b/app/app/ai/laboratory/page.tsx
+@@ -0,0 +1,9 @@
++import { redirect } from 'next/navigation';
++import { requireRole } from '@/lib/auth/require-role';
++import { Laboratory } from './_client';
++export const dynamic = 'force-dynamic';
++export default async function LaboratoryPage() {
++  const authz = await requireRole('manager', { resource: 'laboratory' });
++  if (!authz.ok) redirect('/app/ai/agents');
++  return <Laboratory organizationId={authz.org.orgId} />;
++}
+--- /dev/null
++++ b/lib/laboratory/policy.test.ts
+@@ -0,0 +1,16 @@
++import { describe, expect, it } from 'vitest';
++import { laboratoryExecution, canPreviewAgent } from './policy';
++describe('laboratory boundary', () => {
++  it('fails closed without database configuration and rejects synthetic execution', () => {
++    expect(laboratoryExecution({}).available).toBe(false);
++    expect(laboratoryExecution({ SUPABASE_DB_URL: 'configured', INTERNAL_AGENT_RUN_STUB: 'true' }).available).toBe(false);
++    expect(laboratoryExecution({ SUPABASE_DB_URL: 'configured' }).available).toBe(true);
++  });
++  it('rejects agents from another tenant, paused agents and unpublished agents', () => {
++    const agent = { organization_id: 'tenant-a', published_version_id: 'version', is_active: true, paused_at: null, archived_at: null };
++    expect(canPreviewAgent(agent, 'tenant-b')).toBe(false);
++    expect(canPreviewAgent({ ...agent, paused_at: 'today' }, 'tenant-a')).toBe(false);
++    expect(canPreviewAgent({ ...agent, published_version_id: null }, 'tenant-a')).toBe(false);
++    expect(canPreviewAgent(agent, 'tenant-a')).toBe(true);
++  });
++});
+--- /dev/null
++++ b/lib/laboratory/policy.ts
+@@ -0,0 +1,15 @@
++/** O laboratório usa apenas o runtime real; configuração não implica credencial LLM válida. */
++export function laboratoryExecution(env: Record<string, string | undefined>) {
++  if (env.INTERNAL_AGENT_RUN_STUB === 'true') return { available: false, reason: 'Execução simulada está habilitada; o laboratório exige o motor real.' };
++  if (!env.SUPABASE_DB_URL) return { available: false, reason: 'Configure a conexão do motor (SUPABASE_DB_URL) para executar prévias.' };
++  return { available: true, reason: 'Prévia real de resposta. Modelo, credencial e orçamento serão validados pelo motor. Sem envio externo.' };
++}
++export function canPreviewAgent(agent: {
++  organization_id: string;
++  published_version_id: string | null;
++  is_active: boolean;
++  paused_at: string | null;
++  archived_at: string | null;
++} | null, organizationId: string): boolean {
++  return !!agent && agent.organization_id === organizationId && !!agent.published_version_id && agent.is_active && !agent.paused_at && !agent.archived_at;
++}
+--- a/lib/navigation/catalogo.ts
++++ b/lib/navigation/catalogo.ts
+@@ -275,6 +275,16 @@
+   },
+ 
+   // ---- Agente de IA — montar, ensinar, acompanhar ----
++  {
++    href: "/app/ai/laboratory",
++    label: "LOBY",
++    description: "Escritório da organização e prévias reais dos agentes.",
++    icon: "Robot",
++    group: "ia",
++    section: "Montar o agente",
++    minRole: "manager",
++    sidebar: true,
++  },
+   {
+     href: "/app/ai/agents",
+     label: "Agentes",

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#12151d" />
+    <meta name="description" content="LOBY · escritório virtual da equipe no HappyCash CRM." />
+    <title>LOBY · LOTORIUM LABS</title>
+    <!-- Prévia ao compartilhar o link (Open Graph / Twitter). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LOTORIUM LABS" />
+    <meta property="og:title" content="LOTORIUM LABS" />
+    <meta property="og:description" content="LOBY · escritório virtual da equipe no HappyCash CRM." />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:image" content="/assets/brand/lotorium-icon.webp" />
+    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="O escritório do LOTORIUM LABS em pixel art, com salas de projeto e agentes trabalhando." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="LOTORIUM LABS" />
+    <meta name="twitter:description" content="LOBY · escritório virtual da equipe no HappyCash CRM." />
+    <meta name="twitter:image" content="/assets/brand/lotorium-icon.webp" />
+    <link rel="icon" href="%BASE_URL%assets/brand/lotorium-icon.webp" type="image/webp" sizes="512x512" />
+    <link rel="icon" href="%BASE_URL%assets/brand/lotorium-icon.webp" type="image/webp" sizes="512x512" />
+    <link rel="apple-touch-icon" href="%BASE_URL%assets/brand/lotorium-icon.webp" />
+    <!-- App na Tela de Início (celular): tela cheia, ícone e nome. -->
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="LOTORIUM LABS" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #12151d; }
+      #world, #city, #visit { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+      #world[hidden], #city[hidden], #visit[hidden] { display: none; }
+      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #ui > * { pointer-events: auto; }
+    </style>
+  </head>
+  <body>
+    <canvas id="world"></canvas>
+    <div id="ui"></div>
+    <div id="loby-preload" role="status"><img src="%BASE_URL%assets/brand/lotorium-icon.webp" alt="" /><span class="loby-wordmark"><img src="%BASE_URL%assets/brand/lotorium-labs.svg" alt="LOTORIUM LABS" /><img src="%BASE_URL%assets/brand/lotorium-neon.svg" alt="" /></span><span>Preparando o LOBY…</span><span class="loby-loading-line"></span></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

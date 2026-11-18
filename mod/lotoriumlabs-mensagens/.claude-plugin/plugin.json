@@ -1,0 +1,19 @@
+{
+  "name": "lotoriumlabs-mensagens",
+  "displayName": "LOTORIUM LABS: mensagens pelo escritório",
+  "version": "1.0.3",
+  "description": "Leva para a sessão do Claude Code as mensagens que você digita no LOTORIUM LABS (painel do agente ou terminal), como se você as tivesse digitado no terminal.",
+  "author": {
+    "name": "LOTORIUM LABS",
+    "url": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice"
+  },
+  "homepage": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice#readme",
+  "repository": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice",
+  "license": "MIT",
+  "keywords": [
+    "lotoriumlabs",
+    "escritorio",
+    "mensagens",
+    "prompt"
+  ]
+}

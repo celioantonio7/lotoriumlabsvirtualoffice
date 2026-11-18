@@ -1,0 +1,26 @@
+{
+  "name": "lotoriumlabs",
+  "owner": { "name": "Márcio Junior", "url": "https://github.com/celioantonio7" },
+  "description": "Plugins do LOTORIUM LABS, o escritório virtual em pixel art das suas sessões do Claude Code.",
+  "version": "1.0.3",
+  "plugins": [
+    {
+      "name": "lotoriumlabs",
+      "source": "./mod/lotoriumlabs",
+      "description": "Mod do LOTORIUM LABS: uso do plano (5h e semanal) para o escritório, aviso embaixo do prompt quando outra sessão precisa de você e o comando /lotoriumlabs.",
+      "category": "productivity"
+    },
+    {
+      "name": "lotoriumlabs-permissoes",
+      "source": "./mod/lotoriumlabs-permissoes",
+      "description": "Aprovar ou recusar pelo LOTORIUM LABS os pedidos de permissão do Claude Code e responder as perguntas do agente (hook PermissionRequest).",
+      "category": "productivity"
+    },
+    {
+      "name": "lotoriumlabs-mensagens",
+      "source": "./mod/lotoriumlabs-mensagens",
+      "description": "Mandar mensagens pelo LOTORIUM LABS: o que você digita no escritório entra na sessão como se você tivesse digitado no terminal.",
+      "category": "productivity"
+    }
+  ]
+}

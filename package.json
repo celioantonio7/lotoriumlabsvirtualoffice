@@ -1,0 +1,45 @@
+{
+  "name": "lotoriumlabs",
+  "version": "1.0.3",
+  "private": true,
+  "description": "Laboratório virtual da LOTORIUM LABS conectado exclusivamente ao CRM.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celioantonio7/lotoriumlabsvirtualoffice.git"
+  },
+  "homepage": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false --exclude './client/**' server/index.ts --dev",
+    "dev:client": "vite --config vite.config.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build --config vite.config.ts",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json",
+    "test": "vitest run",
+    "i18n:check": "tsx scripts/i18n-check.ts",
+    "build:loby": "node scripts/export-loby.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/pixelify-sans": "^5.3.0",
+    "@types/node": "^22.20.5",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  },
+  "optionalDependencies": {
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0",
+    "node-pty": "^1.1.0"
+  }
+}

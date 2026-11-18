@@ -1,0 +1,4 @@
+{
+  "description": "Módulo de hooks do mod do LOTORIUM LABS (uso do plano, aviso embaixo do prompt e /lotoriumlabs)",
+  "modules": ["./register.ts"]
+}

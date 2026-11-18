@@ -1,0 +1,18 @@
+{
+  "name": "lotoriumlabs-permissoes",
+  "displayName": "LOTORIUM LABS: permissões pelo escritório",
+  "version": "1.0.3",
+  "description": "Hook PermissionRequest que deixa aprovar ou recusar pelo LOTORIUM LABS os pedidos de permissão do Claude Code e responder as perguntas do AskUserQuestion; o diálogo continua no terminal e vale o que você responder primeiro.",
+  "author": {
+    "name": "LOTORIUM LABS",
+    "url": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice"
+  },
+  "homepage": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice#readme",
+  "repository": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice",
+  "license": "MIT",
+  "keywords": [
+    "lotoriumlabs",
+    "permissoes",
+    "hooks"
+  ]
+}

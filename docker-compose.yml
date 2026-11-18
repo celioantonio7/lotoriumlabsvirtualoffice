@@ -1,0 +1,19 @@
+name: lotoriumlabs
+services:
+  lotoriumlabs:
+    build: .
+    image: lotoriumlabs:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LOTORIUM_LABS_PORT:-4747}:4747"
+    environment:
+      LOTORIUM_LABS_PORT: 4747
+      LOTORIUM_LABS_HOST: 0.0.0.0
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true

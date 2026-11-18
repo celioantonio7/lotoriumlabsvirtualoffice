@@ -1,0 +1,20 @@
+{
+  "name": "lotoriumlabs",
+  "displayName": "LOTORIUM LABS",
+  "version": "1.0.3",
+  "description": "Liga a sessão ao LOTORIUM LABS: grava o uso do plano (5h e semanal) para o escritório, avisa embaixo do prompt quando outra sessão precisa de você e adiciona o comando /lotoriumlabs.",
+  "author": {
+    "name": "LOTORIUM LABS",
+    "url": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice"
+  },
+  "homepage": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice#readme",
+  "repository": "https://github.com/celioantonio7/lotoriumlabsvirtualoffice",
+  "license": "MIT",
+  "keywords": [
+    "lotoriumlabs",
+    "escritorio",
+    "uso",
+    "rate-limits",
+    "status"
+  ]
+}
